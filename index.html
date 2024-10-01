@@ -1,0 +1,232 @@
+<script src="./js/tf.min.js.map"> </script> 
+<script src="./js/coco-ssd.min.js.map"> </script> 
+<script src="./WebGazer/js/searchgazer.js" type="text/javascript" > 
+
+
+
+<button class="active" id="capture" style="visibility:  hidden;" >Capture</button>
+<!--
+<video id="player" width='100%' height='100%'    controls autoplay></video>
+-->
+<canvas id="canvas" width='250' height='250' ></canvas>
+<p id="predictions">Predictions:</p>
+<p id="alertCodes">Codes</p>
+
+
+<style>
+video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-width: 100%;
+  min-height: 100%;
+  z-index: -1;
+  -webkit-transition: all 1s;
+  -moz-transition: all 1s;
+  -o-transition: all 1s;
+  transition: all 1s;
+}
+button {
+    background-color: blue;
+    border: medium none;
+    color:  white;
+    display: block;
+    font-size: 18px;
+    left: 0;
+    margin: 0 auto;
+    padding: 8px 16px;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    left: 50%;
+}
+
+
+</style>
+<script>
+
+  
+webgazer.setGazeListener(function(data, elapsedTime) {
+    if (data == null) {
+        return;
+    }
+    var xprediction = data.x; //these x coordinates are relative to the viewport
+    var yprediction = data.y; //these y coordinates are relative to the viewport
+   // alert('(x,y)=('+xprediction+','+yprediction+')');
+   // console.log(elapsedTime); //elapsed time is based on time since begin was called
+    console.log('(x,y)=('+xprediction+','+yprediction+')'); //elapsed time is based on time since begin was called
+}).begin(); 
+          
+webgazer.pause();
+  var   seconds=1;  ///Grab a frame after ever seconds  
+  var   timeLapse=1000*seconds; //Time to grab a frame. 1000 means 1 milli sec.
+  var   minutes=5;  //Vid duration 5 min
+  var   maxDuration=1000*60*minutes;  //Max duration of a vid in minuts. 100-*60 make min. Minutes means total minutes duration
+  var   count=0;    // Time interval control variable
+  var   maxCount=maxDuration/timeLapse; // Max value of control variable
+  /**Vid controls **/
+  const player = document.getElementById('player');
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+  
+  const captureButton = document.getElementById('capture'); //optional. for testing and coding purpose only
+
+  const constraints = {
+    video: true,
+  };
+
+    window.setInterval(function()
+    {
+       if(count<=maxCount)
+       {
+           
+            count++;//increment counter at every time trigger
+            context.drawImage(player, 0, 0, canvas.width, canvas.height);//grab image 
+            predict();
+            webgazer.resume();
+            var xprediction = data.x; //these x coordinates are relative to the viewport
+            var yprediction = data.y;
+            
+            if(xprediction>screen.availWidth || yprediction > screen.availHeight)
+            {
+                raiseAlert("LOOKINGAROUND");
+            }
+            
+            
+            webgazer.pause();
+            
+              //do predictions
+       } 
+       
+    }, timeLapse);// time trigger 
+
+ //optional. for testing and coding purpose only
+  captureButton.addEventListener('click', () => 
+  {
+    // Draw the video frame to the canvas.
+    context.drawImage(player, 0, 0, canvas.width, canvas.height);
+    
+    predict();
+  });
+
+  // Attach the video stream to the video element and autoplay.
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then((stream) => {
+      player.srcObject = stream;
+    });
+ // Prdiction making mechanism.
+ function predict()
+ {
+    const img = document.getElementById('canvas');
+ 
+    var personCount=0;
+    cocoSsd.load().then(model => {
+    model.detect(img).then(predictions => 
+    {
+      var keys = [];
+       for(var key in predictions)
+       {
+        
+          prediction=predictions[key]['class'];  
+          document.getElementById('predictions').innerHTML+=prediction;
+          //Detecting and parsing what prediction tells about image content. Will be extended when base system is finalized. 
+          if(prediction=='person')
+          {
+            personCount+=1;
+          }
+          if(personCount>1) // person presence triggers only when person count is more than 1
+          {
+            raiseAlert("MLTIPLEPERSONS"); //Raise alert with flag MLTIPLEPERSONS
+          }
+          if(personCount==0) // person presence triggers only when person count is more than 1
+          {
+            raiseAlert("NOPERSON"); //Raise alert with flag MLTIPLEPERSONS
+          }
+          if(prediction=='smart phone' || prediction=='mobile phone'  ) // multiple cases of smart device in use
+          {
+            raiseAlert("SMARTPHONEINUSE"); //Rais alert with flag SMARTPHONEINUSE
+          }
+          
+       }  
+      
+      console.log(predictions);
+    });
+  });
+}
+ // A utility function 
+ var getKeys = function(obj){
+   var keys = [];
+   for(var key in obj){
+      keys.push(key);
+   }
+   return keys;
+}
+//A utility function to create blob from image
+function    createBlob()
+{
+    
+    var canvas = document.getElementById('canvas');
+    
+    canvas.toBlob(function(blob) {
+      var newImg = document.createElement('img'),
+          url = URL.createObjectURL(blob);
+    
+      newImg.onload = function() {
+        // no longer need to read the blob so it's revoked
+        URL.revokeObjectURL(url);
+      };
+    
+      newImg.src = url;
+     
+    });
+    return url;
+    
+}  
+
+
+//Alert raising function. 
+//Parameter is code. code defines type of violation/Unfair means
+function    raiseAlert(code)
+{
+    document.getElementById('alertCodes').innerHTML=code;
+    var today = new Date();
+    var date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+    var time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+    var dateTime = date+' '+time;
+    //JSON representation. 
+    theAlert={
+                    "alert":
+                    [
+                      {"code":code, "time":dateTime},
+                      
+                    ]
+                }
+    //Preparing data upload
+    
+    
+    var form = new FormData();
+    
+    form.append("session_id", "12345");
+    form.append("code", code);
+    form.append("time", dateTime);
+    form.append("image", createBlob());
+
+    var settings = {
+      "url": "https://sessionaccess.ntheye.com/AutoProctor/AutoExam/insert_session_object_alert",
+      "method": "POST",
+      "timeout": 0,
+      "processData": false,
+      "mimeType": "multipart/form-data",
+      "contentType": false,
+      "data": form
+    };
+    
+    $.ajax(settings).done(function (response) {
+      console.log(response);
+    });
+    
+    
+}
+</script> 

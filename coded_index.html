@@ -1,0 +1,93 @@
+<!-- Load TensorFlow.js. This is required to use coco-ssd model. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"> </script> 
+<!-- Load the coco-ssd model. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"> </script> 
+ 
+<!-- Replace this with your image. Make sure CORS settings allow reading the image! -->
+
+<video id="player" width=250 height=250    controls autoplay></video>
+<button id="capture">Capture</button>
+<canvas id="canvas" width=250 height=250 ></canvas>
+<p id="predictions">here</p>
+<script>
+  const player = document.getElementById('player');
+  const canvas = document.getElementById('canvas');
+  const context = canvas.getContext('2d');
+  const captureButton = document.getElementById('capture');
+
+  const constraints = {
+    video: true,
+  };
+
+  captureButton.addEventListener('click', () => {
+    // Draw the video frame to the canvas.
+    context.drawImage(player, 0, 0, canvas.width, canvas.height);
+    predict();
+  });
+
+  // Attach the video stream to the video element and autoplay.
+  navigator.mediaDevices.getUserMedia(constraints)
+    .then((stream) => {
+      player.srcObject = stream;
+    });
+
+ function predict()
+ {
+  const img = document.getElementById('canvas');
+ 
+  // Load the model.
+  cocoSsd.load().then(model => {
+    // detect objects in the image.
+    model.detect(img).then(predictions => 
+    {
+      var keys = [];
+      var personCount=0;
+       for(var key in predictions)
+       {
+          prediction=predictions[key]['class'];  
+          document.getElementById('predictions').innerHTML+=prediction;
+          
+          
+          if(prediction=='person')
+          {
+            personCount+=1;
+          }
+          if(personCount>1)
+          {
+            raiseAlert("MLTIPLEPERSONS");
+          }
+          if(predictions=='smart phone' or predictions=='mobile phone'  )
+          {
+            raiseAlert("SMARTPHONEINUSE");
+          }
+          
+          
+       }  
+      
+      console.log(predictions);
+    });
+  });
+  }
+ var getKeys = function(obj){
+   var keys = [];
+   for(var key in obj){
+      keys.push(key);
+   }
+   return keys;
+}
+function    raiseAlert(var code)
+{
+    var today = new Date();
+    var date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+    var time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+    var dateTime = date+' '+time;
+    theAlert={
+                "employees":
+                [
+                  {"code":code, "time":dateTime},
+                  
+                ]
+                }
+    //
+}
+</script> 
